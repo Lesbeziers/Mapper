@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Map Annotator</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap');
+
+:root {
+  --bg:     #0f0f13;
+  --s1:     #1a1a22;
+  --s2:     #22222e;
+  --s3:     #2a2a38;
+  --b1:     rgba(255,255,255,0.07);
+  --b2:     rgba(255,255,255,0.14);
+  --text:   #e8e8f0;
+  --muted:  rgba(232,232,240,0.45);
+  --accent: #7c6cfc;
+  --danger: #fc6c6c;
+  --ok:     #56c97a;
+  --r:      12px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;overflow:hidden;-webkit-tap-highlight-color:transparent;touch-action:none;}
+
+#shell{display:flex;flex-direction:column;width:100vw;height:100dvh;}
+
+/* ── Toolbar ── */
+#toolbar{flex-shrink:0;height:52px;display:flex;align-items:center;gap:6px;padding:0 10px;background:var(--s1);border-bottom:1px solid var(--b1);z-index:100;}
+#app-title{font-family:'DM Mono',monospace;font-size:12px;font-weight:500;color:var(--accent);letter-spacing:.05em;flex-shrink:0;}
+#map-selector-wrap{flex:1;min-width:0;}
+#map-selector{width:100%;height:34px;background:var(--s2);border:1px solid var(--b2);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:0 26px 0 10px;appearance:none;-webkit-appearance:none;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(232,232,240,0.45)' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 9px center;}
+#map-selector:disabled{opacity:.4;cursor:default;}
+.tb-btn{flex-shrink:0;width:34px;height:34px;border-radius:8px;border:1px solid var(--b2);background:var(--s2);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;transition:background .12s;}
+.tb-btn:active{background:var(--accent);border-color:var(--accent);}
+.tb-btn.del:active{background:var(--danger);border-color:var(--danger);}
+
+/* ── Map area ── */
+#map-area{flex:1;position:relative;overflow:hidden;background:#090910;touch-action:none;user-select:none;-webkit-user-select:none;}
+#map-wrap{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;}
+#map-img{display:block;max-width:none;pointer-events:none;-webkit-user-drag:none;}
+
+/* ── Empty state ── */
+#empty-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;pointer-events:none;}
+.e-icon{width:60px;height:60px;border-radius:16px;background:var(--s1);border:1px solid var(--b2);display:flex;align-items:center;justify-content:center;}
+#empty-state p{font-size:15px;color:var(--muted);text-align:center;line-height:1.6;}
+#empty-state .hint{font-family:'DM Mono',monospace;font-size:11px;color:rgba(124,108,252,.55);letter-spacing:.06em;text-transform:uppercase;}
+
+/* ── Markers ── */
+.marker{position:absolute;transform-origin:center center;width:32px;height:32px;display:flex;align-items:center;justify-content:center;z-index:10;cursor:pointer;opacity:.7;transition:opacity .15s;}
+.marker:hover{opacity:1;}
+
+/* ── Zoom ── */
+#zoom-controls{position:absolute;bottom:20px;right:14px;display:flex;flex-direction:column;gap:6px;z-index:50;}
+.zoom-btn{width:44px;height:44px;border-radius:10px;border:1px solid var(--b2);background:rgba(26,26,34,.88);backdrop-filter:blur(8px);color:var(--text);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;transition:background .12s;}
+.zoom-btn:active{background:var(--accent);}
+#zoom-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-align:center;}
+
+/* ── Context menu ── */
+.ctx-menu{position:fixed;z-index:9999;background:var(--s1);border:1px solid var(--b2);border-radius:var(--r);padding:8px;display:flex;gap:6px;align-items:center;box-shadow:0 8px 32px rgba(0,0,0,.6);animation:menuIn .12s ease;}
+@keyframes menuIn{from{opacity:0;transform:translateY(4px) scale(.97);}to{opacity:1;transform:none;}}
+.ctx-btn{width:48px;height:48px;border-radius:10px;border:1px solid var(--b1);background:var(--s2);cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;transition:background .1s,transform .1s;}
+.ctx-btn:active{transform:scale(.9);background:var(--s3);}
+.ctx-sep{width:1px;height:34px;background:var(--b2);margin:0 2px;}
+.ctx-del{border-color:rgba(252,108,108,.25);}
+.ctx-del:active{background:rgba(252,108,108,.15);}
+
+/* ── Overlay base ── */
+.overlay{display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:16px;}
+.overlay.open{display:flex;}
+.panel{background:var(--s1);border:1px solid var(--b2);border-radius:16px;width:100%;max-width:360px;display:flex;flex-direction:column;animation:modalIn .16s ease;overflow:hidden;}
+@keyframes modalIn{from{opacity:0;transform:scale(.95) translateY(10px);}to{opacity:1;transform:none;}}
+.panel-head{display:flex;align-items:center;justify-content:space-between;padding:18px 18px 14px;border-bottom:1px solid var(--b1);}
+.panel-head h2{font-size:15px;font-weight:500;}
+.panel-close{width:30px;height:30px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;}
+.panel-close:active{background:var(--danger);}
+.panel-body{padding:14px 16px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;max-height:65dvh;}
+.panel-foot{padding:12px 16px;border-top:1px solid var(--b1);display:flex;gap:8px;}
+.btn-full{flex:1;height:40px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:14px;cursor:pointer;touch-action:manipulation;transition:background .12s,transform .1s;border:none;}
+.btn-full:active{transform:scale(.97);}
+.btn-cancel{background:var(--s2);border:1px solid var(--b2)!important;color:var(--muted);}
+.btn-accent{background:var(--accent);color:#fff;}
+.btn-accent:disabled{opacity:.35;cursor:default;}
+
+/* ── Icon config rows ── */
+.icon-row{display:flex;align-items:center;gap:10px;}
+.icon-preview{flex-shrink:0;width:36px;height:36px;display:flex;align-items:center;justify-content:center;}
+.icon-row input{height:36px;background:var(--s2);border:1px solid var(--b2);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;padding:0 10px;outline:none;transition:border-color .15s;touch-action:manipulation;}
+.icon-row input:focus{border-color:var(--accent);}
+.inp-name{flex:1;min-width:0;}
+.inp-total{width:64px;flex-shrink:0;text-align:center;}
+.inp-total::placeholder{font-size:11px;}
+
+/* ── Counter rows ── */
+.counter-row{display:flex;align-items:center;gap:12px;padding:10px 12px;background:var(--s2);border-radius:10px;border:1px solid var(--b1);}
+.counter-icon{flex-shrink:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;}
+.counter-name{flex:1;font-size:14px;color:var(--text);}
+.counter-val{font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--accent);white-space:nowrap;}
+.counter-val.complete{color:var(--ok);}
+
+/* ── Inputs genéricos ── */
+.plain-input{height:42px;background:var(--s2);border:1px solid var(--b2);border-radius:8px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;padding:0 12px;outline:none;transition:border-color .15s;touch-action:manipulation;width:100%;}
+.plain-input:focus{border-color:var(--accent);}
+
+/* ── Import: drop zone de imagen ── */
+#import-dropzone{border:2px dashed var(--b2);border-radius:10px;padding:22px 16px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;transition:border-color .15s;touch-action:manipulation;}
+#import-dropzone:hover,#import-dropzone.hover{border-color:var(--accent);}
+#import-dropzone svg{opacity:.5;}
+#import-dropzone p{font-size:13px;color:var(--muted);text-align:center;line-height:1.5;}
+#import-dropzone.loaded{border-color:var(--ok);background:rgba(86,201,122,.06);}
+#import-dropzone.loaded p{color:var(--ok);}
+
+/* ── Progress dots ── */
+#import-progress{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap;}
+.prog-dot{width:8px;height:8px;border-radius:50%;background:var(--b2);transition:background .2s;}
+.prog-dot.done{background:var(--ok);}
+.prog-dot.active{background:var(--accent);}
+
+/* ── Snack ── */
+#snack{position:fixed;bottom:76px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--s1);border:1px solid var(--b2);border-radius:8px;padding:10px 18px;font-size:13px;color:var(--text);pointer-events:none;opacity:0;transition:opacity .2s,transform .2s;white-space:nowrap;z-index:99999;}
+#snack.show{opacity:1;transform:translateX(-50%) translateY(0);}
+#file-input{display:none;}
+#json-input{display:none;}
+#img-import-input{display:none;}
+</style>
+</head>
+<body>
+<div id="shell">
+  <div id="toolbar">
+    <span id="app-title">MAPS</span>
+    <div id="map-selector-wrap">
+      <select id="map-selector" disabled><option value="">— sin mapas —</option></select>
+    </div>
+    <!-- Añadir mapa -->
+    <button class="tb-btn" id="add-btn" title="Añadir mapa">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><line x1="7.5" y1="1" x2="7.5" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="1" y1="7.5" x2="14" y2="7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <!-- Editar iconos -->
+    <button class="tb-btn" id="edit-icons-btn" title="Configurar iconos">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="3.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="11.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.4"/></svg>
+    </button>
+    <!-- Contadores -->
+    <button class="tb-btn" id="counters-btn" title="Ver contadores">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><rect x="1" y="9" width="3" height="5" rx="1" fill="currentColor"/><rect x="6" y="5" width="3" height="9" rx="1" fill="currentColor"/><rect x="11" y="1" width="3" height="13" rx="1" fill="currentColor"/></svg>
+    </button>
+    <!-- Ajustar -->
+    <button class="tb-btn" id="fit-btn" title="Ajustar vista">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M1 4.5V1.5h3M11 1.5h3v3M1 10.5v3h3M11 13.5h3v-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <!-- Cargar JSON -->
+    <button class="tb-btn" id="load-json-btn" title="Cargar sesión (JSON)">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 14V6M5 8.5l2.5-2.5L10 8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v1.5a1 1 0 001 1h9a1 1 0 001-1V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+    <!-- Guardar JSON -->
+    <button class="tb-btn" id="save-btn" title="Guardar sesión (JSON)">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1v8M5 7l2.5 2.5L10 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M2 11v1.5a1 1 0 001 1h9a1 1 0 001-1V11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+    <!-- Borrar mapa -->
+    <button class="tb-btn del" id="del-map-btn" title="Eliminar mapa" style="display:none">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 3.5h11M5 3.5V2h5v1.5M5.5 6.5v5M9.5 6.5v5M3 3.5l.8 8.5a1 1 0 001 .9h5.4a1 1 0 001-.9l.8-8.5" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+
+  <div id="map-area">
+    <div id="map-wrap"><img id="map-img" src="" alt="" draggable="false"></div>
+    <div id="empty-state">
+      <div class="e-icon">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="2" y="2" width="22" height="22" rx="4" stroke="rgba(124,108,252,.6)" stroke-width="1.5"/><path d="M2 18L8 12L13 17L18 10L24 16" stroke="rgba(124,108,252,.6)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19" cy="7" r="3" stroke="rgba(124,108,252,.6)" stroke-width="1.5"/></svg>
+      </div>
+      <p>Toca <strong>+</strong> para añadir un mapa<br>o carga una sesión guardada</p>
+      <span class="hint">multi-mapa · marcadores · contadores</span>
+    </div>
+    <div id="zoom-controls">
+      <button class="zoom-btn" id="zoom-in">+</button>
+      <span id="zoom-label">100%</span>
+      <button class="zoom-btn" id="zoom-out">−</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: nombre del mapa ── -->
+<div class="overlay" id="overlay-name">
+  <div class="panel" style="max-width:340px">
+    <div class="panel-head">
+      <h2>Nombre del mapa</h2>
+      <button class="panel-close" id="name-close"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="panel-body" style="gap:6px">
+      <p style="font-size:13px;color:var(--muted)">¿Cómo quieres llamar a este mapa?</p>
+      <input class="plain-input" id="modal-name-input" type="text" placeholder="Ej: Surface · Sky · Mazmorra 1" maxlength="40" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="panel-foot">
+      <button class="btn-full btn-cancel" id="name-cancel">Cancelar</button>
+      <button class="btn-full btn-accent" id="name-confirm" disabled>Continuar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: configurar iconos ── -->
+<div class="overlay" id="overlay-icons">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Configurar iconos</h2>
+      <button class="panel-close" id="icons-close"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="panel-body" id="icons-body"></div>
+    <div class="panel-foot">
+      <button class="btn-full btn-cancel" id="icons-cancel">Cancelar</button>
+      <button class="btn-full btn-accent" id="icons-confirm">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Panel: contadores ── -->
+<div class="overlay" id="overlay-counters">
+  <div class="panel">
+    <div class="panel-head">
+      <h2>Contadores</h2>
+      <button class="panel-close" id="counters-close"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="panel-body" id="counters-body"></div>
+  </div>
+</div>
+
+<!-- ── Modal: importar JSON (paso a paso) ── -->
+<div class="overlay" id="overlay-import">
+  <div class="panel">
+    <div class="panel-head">
+      <h2 id="import-title">Cargando sesión</h2>
+      <button class="panel-close" id="import-close"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="panel-body">
+      <!-- progress dots -->
+      <div id="import-progress"></div>
+      <!-- descripción -->
+      <p id="import-desc" style="font-size:13px;color:var(--muted);line-height:1.5;text-align:center;"></p>
+      <!-- dropzone imagen -->
+      <div id="import-dropzone">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect x="3" y="3" width="26" height="26" rx="5" stroke="var(--text)" stroke-width="1.5"/><path d="M3 22L11 14L17 20L22 13L29 20" stroke="var(--text)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="22" cy="10" r="3.5" stroke="var(--text)" stroke-width="1.5"/></svg>
+        <p id="import-drop-label">Toca para seleccionar la imagen</p>
+      </div>
+    </div>
+    <div class="panel-foot">
+      <button class="btn-full btn-cancel" id="import-skip">Cancelar</button>
+      <button class="btn-full btn-accent" id="import-next" disabled>Siguiente</button>
+    </div>
+  </div>
+</div>
+
+<input type="file" id="file-input" accept="image/*">
+<input type="file" id="json-input" accept=".json,application/json">
+<input type="file" id="img-import-input" accept="image/*">
+<div id="snack"></div>
+
+<script>
+// ── Estado ────────────────────────────────────────────────────────────────
+const APP = {
+  maps: [], current: null,
+  icons: [
+    { id:'circle',   color:'#56c97a', draw:c=>`<circle cx="14" cy="14" r="10" fill="${c}" stroke="rgba(0,0,0,.3)" stroke-width="1"/>`, name:'', total:'' },
+    { id:'square',   color:'#5b9cf6', draw:c=>`<rect x="4" y="4" width="20" height="20" rx="3" fill="${c}" stroke="rgba(0,0,0,.3)" stroke-width="1"/>`, name:'', total:'' },
+    { id:'triangle', color:'#f5a623', draw:c=>`<polygon points="14,3 26,25 2,25" fill="${c}" stroke="rgba(0,0,0,.3)" stroke-width="1"/>`, name:'', total:'' },
+    { id:'heptagon', color:'#c97bf5', draw:c=>`<polygon points="14,2 23.5,6 27,15 23.5,23 14,26 4.5,23 1,15 4.5,6" fill="${c}" stroke="rgba(0,0,0,.3)" stroke-width="1"/>`, name:'', total:'' },
+  ],
+  iconsConfigured: false,
+};
+const cur = () => APP.maps.find(m => m.id === APP.current);
+
+// ── DOM ───────────────────────────────────────────────────────────────────
+const mapArea    = document.getElementById('map-area');
+const mapWrap    = document.getElementById('map-wrap');
+const mapImg     = document.getElementById('map-img');
+const zoomLabel  = document.getElementById('zoom-label');
+const emptyState = document.getElementById('empty-state');
+const selector   = document.getElementById('map-selector');
+const delMapBtn  = document.getElementById('del-map-btn');
+const snack      = document.getElementById('snack');
+
+// ── Snack ─────────────────────────────────────────────────────────────────
+let snackT = null;
+function showSnack(msg) {
+  snack.textContent = msg; snack.classList.add('show');
+  clearTimeout(snackT); snackT = setTimeout(() => snack.classList.remove('show'), 2400);
+}
+
+// ── SVG ───────────────────────────────────────────────────────────────────
+const mkSVG = (id, size=28) => {
+  const ic = APP.icons.find(i => i.id===id) || APP.icons[0];
+  return `<svg width="${size}" height="${size}" viewBox="0 0 28 28">${ic.draw(ic.color)}</svg>`;
+};
+
+// ── Selector ──────────────────────────────────────────────────────────────
+function rebuildSelector() {
+  selector.innerHTML = '';
+  if (!APP.maps.length) {
+    selector.innerHTML = '<option value="">— sin mapas —</option>';
+    selector.disabled = true; delMapBtn.style.display = 'none'; return;
+  }
+  selector.disabled = false; delMapBtn.style.display = 'flex';
+  APP.maps.forEach(m => {
+    const o = document.createElement('option');
+    o.value = m.id; o.textContent = m.name;
+    if (m.id === APP.current) o.selected = true;
+    selector.appendChild(o);
+  });
+}
+selector.addEventListener('change', () => switchMap(selector.value));
+
+function switchMap(id) {
+  APP.current = id;
+  const m = cur(); if (!m) return;
+  mapImg.onload = () => { emptyState.style.display = 'none'; applyTransform(); };
+  mapImg.src = m.imgSrc;
+  if (mapImg.complete && mapImg.naturalWidth > 0) { emptyState.style.display = 'none'; applyTransform(); }
+  rebuildSelector();
+}
+
+// ── Transform ─────────────────────────────────────────────────────────────
+function applyTransform() {
+  const m = cur(); if (!m) return;
+  mapWrap.style.transform = `translate(${m.ox}px,${m.oy}px) scale(${m.scale})`;
+  zoomLabel.textContent = Math.round(m.scale*100)+'%';
+  renderMarkers();
+}
+function clamp() {
+  const m = cur(); if (!m) return;
+  const aw=mapArea.clientWidth, ah=mapArea.clientHeight;
+  const iw=m.imgW*m.scale, ih=m.imgH*m.scale;
+  m.ox = Math.max(Math.min(0,aw-iw), Math.min(Math.max(0,aw-iw), m.ox));
+  m.oy = Math.max(Math.min(0,ah-ih), Math.min(Math.max(0,ah-ih), m.oy));
+}
+function fitToArea() {
+  const m = cur(); if (!m) return;
+  const aw=mapArea.clientWidth, ah=mapArea.clientHeight;
+  m.scale = Math.min(aw/m.imgW, ah/m.imgH, 1);
+  m.ox = (aw-m.imgW*m.scale)/2; m.oy = (ah-m.imgH*m.scale)/2;
+  applyTransform();
+}
+function doZoom(factor, cx, cy) {
+  const m = cur(); if (!m) return;
+  const prev = m.scale;
+  m.scale = Math.max(0.1, Math.min(12, m.scale*factor));
+  const r = m.scale/prev;
+  m.ox = cx-(cx-m.ox)*r; m.oy = cy-(cy-m.oy)*r;
+  clamp(); applyTransform();
+}
+
+// ── Markers ───────────────────────────────────────────────────────────────
+function renderMarkers() {
+  mapWrap.querySelectorAll('.marker').forEach(el => el.remove());
+  const m = cur(); if (!m) return;
+  const inv = 1/m.scale;
+  m.markers.forEach((mk, idx) => {
+    const el = document.createElement('div');
+    el.className = 'marker';
+    el.style.cssText = `left:${mk.x}px;top:${mk.y}px;transform:translate(-50%,-50%) scale(${inv})`;
+    el.innerHTML = mkSVG(mk.type); el.dataset.idx = idx;
+    mapWrap.appendChild(el);
+  });
+}
+
+// ── Context menu ──────────────────────────────────────────────────────────
+let activeMenu = null;
+function closeMenu() { if (activeMenu) { activeMenu.remove(); activeMenu = null; } }
+function positionMenu(menu, cx, cy) {
+  menu.style.left='0px'; menu.style.top='0px';
+  document.body.appendChild(menu); activeMenu = menu;
+  requestAnimationFrame(() => {
+    const r = menu.getBoundingClientRect();
+    let x = cx-r.width/2, y = cy-r.height-14;
+    if (x+r.width > window.innerWidth-8) x = window.innerWidth-r.width-8;
+    if (x < 8) x = 8; if (y < 8) y = cy+14;
+    menu.style.left = x+'px'; menu.style.top = y+'px';
+  });
+}
+function buildIconBtns(onSelect) {
+  const frag = document.createDocumentFragment();
+  APP.icons.forEach(ic => {
+    const btn = document.createElement('button');
+    btn.className = 'ctx-btn';
+    if (ic.name) btn.title = ic.name;
+    btn.innerHTML = `<svg width="26" height="26" viewBox="0 0 28 28">${ic.draw(ic.color)}</svg>`;
+    btn.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); });
+    btn.addEventListener('click', e => { e.stopPropagation(); closeMenu(); onSelect(ic.id); });
+    frag.appendChild(btn);
+  });
+  return frag;
+}
+function showPlaceMenu(imgX, imgY, cx, cy) {
+  closeMenu();
+  const menu = document.createElement('div'); menu.className = 'ctx-menu';
+  menu.appendChild(buildIconBtns(id => { cur().markers.push({x:imgX,y:imgY,type:id}); renderMarkers(); }));
+  positionMenu(menu, cx, cy);
+}
+function showMarkerMenu(idx, cx, cy) {
+  closeMenu();
+  const menu = document.createElement('div'); menu.className = 'ctx-menu';
+  menu.appendChild(buildIconBtns(id => { cur().markers[idx].type = id; renderMarkers(); }));
+  const sep = document.createElement('div'); sep.className = 'ctx-sep'; menu.appendChild(sep);
+  const del = document.createElement('button'); del.className = 'ctx-btn ctx-del';
+  del.innerHTML = `<svg width="18" height="18" viewBox="0 0 18 18"><line x1="4" y1="4" x2="14" y2="14" stroke="#fc6c6c" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="4" x2="4" y2="14" stroke="#fc6c6c" stroke-width="2" stroke-linecap="round"/></svg>`;
+  del.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); });
+  del.addEventListener('click', e => { e.stopPropagation(); closeMenu(); cur().markers.splice(idx,1); renderMarkers(); });
+  menu.appendChild(del);
+  positionMenu(menu, cx, cy);
+}
+
+// ── Pointer handling ──────────────────────────────────────────────────────
+let ptrs={}, dragStart=null, pinchStart=null, didMove=false, tappedMarkerIdx=null;
+mapArea.addEventListener('contextmenu', e => e.preventDefault());
+mapArea.addEventListener('pointerdown', e => {
+  if (e.pointerType==='mouse'&&e.button!==0) return;
+  if (!cur()) return;
+  e.preventDefault();
+  const mel = e.target.closest('.marker');
+  tappedMarkerIdx = mel ? parseInt(mel.dataset.idx) : null;
+  mapArea.setPointerCapture(e.pointerId);
+  ptrs[e.pointerId] = {x:e.clientX,y:e.clientY};
+  const pts = Object.values(ptrs);
+  if (pts.length===1) { didMove=false; dragStart={ox:cur().ox,oy:cur().oy,x:e.clientX,y:e.clientY}; pinchStart=null; }
+  else if (pts.length===2) {
+    const [a,b]=pts; const r=mapArea.getBoundingClientRect();
+    pinchStart={dist:Math.hypot(a.x-b.x,a.y-b.y),scale:cur().scale,ox:cur().ox,oy:cur().oy,mx:(a.x+b.x)/2-r.left,my:(a.y+b.y)/2-r.top};
+    didMove=true; tappedMarkerIdx=null;
+  }
+},{passive:false});
+mapArea.addEventListener('pointermove', e => {
+  if (!ptrs[e.pointerId]||!cur()) return;
+  ptrs[e.pointerId]={x:e.clientX,y:e.clientY};
+  const pts=Object.values(ptrs);
+  if (pts.length>=2&&pinchStart) {
+    const [a,b]=pts; const dist=Math.hypot(a.x-b.x,a.y-b.y);
+    const m=cur(); m.scale=Math.max(0.1,Math.min(12,pinchStart.scale*(dist/pinchStart.dist)));
+    const ratio=m.scale/pinchStart.scale;
+    m.ox=pinchStart.mx-(pinchStart.mx-pinchStart.ox)*ratio; m.oy=pinchStart.my-(pinchStart.my-pinchStart.oy)*ratio;
+    clamp();applyTransform();didMove=true;return;
+  }
+  if (pts.length===1&&dragStart&&cur()) {
+    const dx=e.clientX-dragStart.x,dy=e.clientY-dragStart.y;
+    if (!didMove&&Math.hypot(dx,dy)>5) didMove=true;
+    if (didMove){cur().ox=dragStart.ox+dx;cur().oy=dragStart.oy+dy;clamp();applyTransform();}
+  }
+});
+mapArea.addEventListener('pointerup', e => {
+  if (e.pointerType==='mouse'&&e.button!==0){delete ptrs[e.pointerId];return;}
+  const wasOne=Object.keys(ptrs).length===1;
+  const cx=e.clientX,cy=e.clientY;
+  delete ptrs[e.pointerId];
+  if (Object.keys(ptrs).length<2) pinchStart=null;
+  if (wasOne&&!didMove&&cur()) {
+    if (tappedMarkerIdx!==null) { showMarkerMenu(tappedMarkerIdx,cx,cy); }
+    else {
+      const r=mapArea.getBoundingClientRect(); const m=cur();
+      const imgX=(cx-r.left-m.ox)/m.scale, imgY=(cy-r.top-m.oy)/m.scale;
+      if (imgX>=0&&imgY>=0&&imgX<=m.imgW&&imgY<=m.imgH) showPlaceMenu(imgX,imgY,cx,cy);
+    }
+  }
+  if (Object.keys(ptrs).length===0){dragStart=null;didMove=false;tappedMarkerIdx=null;}
+});
+mapArea.addEventListener('pointercancel', e => {
+  delete ptrs[e.pointerId];
+  if (Object.keys(ptrs).length===0){dragStart=null;didMove=false;pinchStart=null;tappedMarkerIdx=null;}
+});
+mapArea.addEventListener('wheel', e => {
+  if (!cur()) return; e.preventDefault();
+  const r=mapArea.getBoundingClientRect();
+  doZoom(e.deltaY<0?1.15:1/1.15,e.clientX-r.left,e.clientY-r.top);
+},{passive:false});
+document.addEventListener('pointerdown', e => { if (activeMenu&&!activeMenu.contains(e.target)) closeMenu(); });
+
+// ── Modal: nombre del mapa ────────────────────────────────────────────────
+const overlayName    = document.getElementById('overlay-name');
+const modalNameInput = document.getElementById('modal-name-input');
+const nameConfirm    = document.getElementById('name-confirm');
+let pendingFile=null, pendingName='';
+
+function openNameModal(file) {
+  pendingFile=file;
+  const sug=file.name.replace(/\.[^.]+$/,'').replace(/[-_]/g,' ');
+  modalNameInput.value=sug; nameConfirm.disabled=sug.trim().length===0;
+  overlayName.classList.add('open');
+  setTimeout(()=>{modalNameInput.focus();modalNameInput.select();},80);
+}
+function closeNameModal(){ overlayName.classList.remove('open'); }
+modalNameInput.addEventListener('input',()=>{ nameConfirm.disabled=modalNameInput.value.trim().length===0; });
+modalNameInput.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!nameConfirm.disabled)confirmName(); if(e.key==='Escape')closeNameModal(); });
+document.getElementById('name-cancel').addEventListener('click',closeNameModal);
+document.getElementById('name-close').addEventListener('click',closeNameModal);
+overlayName.addEventListener('click',e=>{ if(e.target===overlayName)closeNameModal(); });
+function confirmName(){
+  pendingName=modalNameInput.value.trim(); closeNameModal();
+  if (!APP.iconsConfigured) openIconsModal(true);
+  else addMapFromPending();
+}
+nameConfirm.addEventListener('click',confirmName);
+
+// ── Modal: configurar iconos ──────────────────────────────────────────────
+const overlayIcons = document.getElementById('overlay-icons');
+const iconsBody    = document.getElementById('icons-body');
+const iconsConfirm = document.getElementById('icons-confirm');
+let iconsFlowInitial=false;
+
+function openIconsModal(isInitial=false) {
+  iconsFlowInitial=isInitial;
+  iconsBody.innerHTML='';
+  const header=document.createElement('div');
+  header.style.cssText='display:flex;align-items:center;gap:10px;padding:0 4px 2px;';
+  header.innerHTML=`<div style="width:36px;flex-shrink:0"></div><span style="flex:1;font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase">Nombre</span><span style="width:64px;flex-shrink:0;font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;text-align:center">Total</span>`;
+  iconsBody.appendChild(header);
+  APP.icons.forEach(ic=>{
+    const row=document.createElement('div'); row.className='icon-row'; row.dataset.id=ic.id;
+    row.innerHTML=`<div class="icon-preview"><svg width="28" height="28" viewBox="0 0 28 28">${ic.draw(ic.color)}</svg></div><input class="inp-name" type="text" placeholder="Nombre del icono" value="${ic.name}" maxlength="24" autocomplete="off" spellcheck="false"><input class="inp-total" type="number" placeholder="—" value="${ic.total}" min="1" max="9999">`;
+    iconsBody.appendChild(row);
+  });
+  if (isInitial) {
+    const note=document.createElement('p');
+    note.style.cssText='font-size:12px;color:var(--muted);line-height:1.5;margin-top:4px;';
+    note.textContent='Puedes dejarlo en blanco y configurarlo más tarde.';
+    iconsBody.appendChild(note);
+    iconsConfirm.textContent='Guardar y añadir mapa';
+  } else { iconsConfirm.textContent='Guardar'; }
+  overlayIcons.classList.add('open');
+}
+function closeIconsModal(){ overlayIcons.classList.remove('open'); }
+function saveIconsFromModal(){
+  iconsBody.querySelectorAll('.icon-row').forEach(row=>{
+    const ic=APP.icons.find(i=>i.id===row.dataset.id); if(!ic) return;
+    ic.name=row.querySelector('.inp-name').value.trim();
+    ic.total=row.querySelector('.inp-total').value.trim();
+  });
+  APP.iconsConfigured=true; closeIconsModal();
+  if (iconsFlowInitial) addMapFromPending();
+}
+iconsConfirm.addEventListener('click',saveIconsFromModal);
+document.getElementById('icons-cancel').addEventListener('click',closeIconsModal);
+document.getElementById('icons-close').addEventListener('click',closeIconsModal);
+overlayIcons.addEventListener('click',e=>{ if(e.target===overlayIcons)closeIconsModal(); });
+document.getElementById('edit-icons-btn').addEventListener('click',()=>openIconsModal(false));
+
+// ── Añadir mapa ───────────────────────────────────────────────────────────
+function addMapFromPending(){
+  if (!pendingFile||!pendingName) return;
+  loadImageFile(pendingFile, (url,w,h)=>{
+    const id='map_'+Date.now();
+    APP.maps.push({id,name:pendingName,imgSrc:url,imgW:w,imgH:h,markers:[],scale:1,ox:0,oy:0});
+    APP.current=id; rebuildSelector(); switchMap(id);
+    setTimeout(fitToArea,50); showSnack(`"${pendingName}" añadido`);
+    pendingFile=null; pendingName='';
+  });
+}
+function loadImageFile(file, cb){
+  const url=URL.createObjectURL(file);
+  const img=new Image();
+  img.onload=()=>cb(url,img.naturalWidth,img.naturalHeight);
+  img.src=url;
+}
+
+// ── Panel: contadores ─────────────────────────────────────────────────────
+const overlayCounters=document.getElementById('overlay-counters');
+const countersBody=document.getElementById('counters-body');
+function openCounters(){
+  countersBody.innerHTML='';
+  const counts={};APP.icons.forEach(ic=>{counts[ic.id]=0;});
+  APP.maps.forEach(m=>m.markers.forEach(mk=>{if(counts[mk.type]!==undefined)counts[mk.type]++;}));
+  const curCounts={};APP.icons.forEach(ic=>{curCounts[ic.id]=0;});
+  const m=cur(); if(m) m.markers.forEach(mk=>{if(curCounts[mk.type]!==undefined)curCounts[mk.type]++;});
+  if(m&&APP.maps.length>1){
+    const info=document.createElement('p');
+    info.style.cssText='font-size:12px;color:var(--muted);margin-bottom:4px;';
+    info.textContent=`Mapa activo: ${m.name}`; countersBody.appendChild(info);
+  }
+  APP.icons.forEach(ic=>{
+    const total=counts[ic.id],curCnt=curCounts[ic.id];
+    const hasTotal=ic.total&&parseInt(ic.total)>0;
+    const label=ic.name||ic.id; const maxVal=hasTotal?parseInt(ic.total):null;
+    const isComplete=maxVal!==null&&total>=maxVal;
+    const valHTML=maxVal!==null
+      ?`<span class="counter-val${isComplete?' complete':''}">${total}<span style="opacity:.5;font-size:12px">/${maxVal}</span></span>`
+      :`<span class="counter-val">${total}</span>`;
+    const subLine=APP.maps.length>1&&m?`<span style="font-size:11px;color:var(--muted);display:block;margin-top:2px;">Este mapa: ${curCnt}</span>`:'';
+    const row=document.createElement('div'); row.className='counter-row';
+    row.innerHTML=`<div class="counter-icon"><svg width="26" height="26" viewBox="0 0 28 28">${ic.draw(ic.color)}</svg></div><div class="counter-name">${label}${subLine}</div>${valHTML}`;
+    countersBody.appendChild(row);
+  });
+  const totalAll=APP.maps.reduce((a,m)=>a+m.markers.length,0);
+  if(APP.maps.length>1){
+    const sep=document.createElement('div');sep.style.cssText='border-top:1px solid var(--b1);margin:4px 0;';countersBody.appendChild(sep);
+    const tot=document.createElement('div');tot.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:6px 12px;';
+    tot.innerHTML=`<span style="font-size:13px;color:var(--muted)">Total global</span><span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--text)">${totalAll}</span>`;
+    countersBody.appendChild(tot);
+  }
+  overlayCounters.classList.add('open');
+}
+document.getElementById('counters-btn').addEventListener('click',openCounters);
+document.getElementById('counters-close').addEventListener('click',()=>overlayCounters.classList.remove('open'));
+overlayCounters.addEventListener('click',e=>{ if(e.target===overlayCounters)overlayCounters.classList.remove('open'); });
+
+// ── IMPORTAR JSON ─────────────────────────────────────────────────────────
+const overlayImport  = document.getElementById('overlay-import');
+const importTitle    = document.getElementById('import-title');
+const importDesc     = document.getElementById('import-desc');
+const importProgress = document.getElementById('import-progress');
+const importDropzone = document.getElementById('import-dropzone');
+const importDropLabel= document.getElementById('import-drop-label');
+const importNext     = document.getElementById('import-next');
+const importSkip     = document.getElementById('import-skip');
+const imgImportInput = document.getElementById('img-import-input');
+
+let importSession = null; // { mapsData, iconsData, currentStep, resolvedMaps }
+
+function startImport(jsonData) {
+  let parsed;
+  try { parsed = JSON.parse(jsonData); } catch(e) { showSnack('JSON inválido'); return; }
+
+  // Soportar formato antiguo (array) o nuevo (objeto con icons + maps)
+  const mapsData  = Array.isArray(parsed) ? parsed : parsed.maps;
+  const iconsData = Array.isArray(parsed) ? null    : parsed.icons;
+
+  if (!mapsData||!mapsData.length){ showSnack('El JSON no contiene mapas'); return; }
+
+  importSession = { mapsData, iconsData, currentStep:0, resolvedMaps:[] };
+
+  // Restaurar configuración de iconos si existe en el JSON
+  if (iconsData) {
+    iconsData.forEach(saved=>{
+      const ic=APP.icons.find(i=>i.id===saved.id); if(!ic) return;
+      ic.name=saved.name||''; ic.total=saved.total||'';
+    });
+    APP.iconsConfigured=true;
+  }
+
+  openImportStep();
+}
+
+function buildProgressDots() {
+  importProgress.innerHTML='';
+  importSession.mapsData.forEach((_,i)=>{
+    const d=document.createElement('div'); d.className='prog-dot';
+    if (i<importSession.currentStep) d.classList.add('done');
+    else if (i===importSession.currentStep) d.classList.add('active');
+    importProgress.appendChild(d);
+  });
+}
+
+function openImportStep() {
+  const { mapsData, currentStep } = importSession;
+  const mapInfo = mapsData[currentStep];
+  const total   = mapsData.length;
+
+  importTitle.textContent = `Cargando sesión (${currentStep+1}/${total})`;
+  importDesc.textContent  = `Selecciona la imagen del mapa:`;
+
+  // Nombre destacado
+  const nameTag = document.createElement('strong');
+  nameTag.style.cssText='font-size:15px;color:var(--text);display:block;text-align:center;margin:-4px 0 2px;';
+  nameTag.textContent = `"${mapInfo.name}"`;
+  // Insertar después del desc si no existe ya
+  const existing = importDesc.nextElementSibling;
+  if (existing && existing.tagName==='STRONG') existing.remove();
+  importDesc.after(nameTag);
+
+  buildProgressDots();
+
+  // Reset dropzone
+  importDropzone.classList.remove('loaded');
+  importDropLabel.textContent = 'Toca para seleccionar la imagen';
+  importNext.disabled = true;
+  importNext.textContent = currentStep < total-1 ? 'Siguiente' : 'Finalizar';
+
+  overlayImport.classList.add('open');
+}
+
+function closeImport() {
+  overlayImport.classList.remove('open');
+  importSession = null;
+  // Limpiar el nametag si quedó
+  const existing = importDesc.nextElementSibling;
+  if (existing && existing.tagName==='STRONG') existing.remove();
+}
+
+// Click en dropzone → abre selector de imagen
+importDropzone.addEventListener('click', () => imgImportInput.click());
+
+imgImportInput.addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  e.target.value = '';
+  // Validar que es una imagen
+  loadImageFile(file, (url, w, h) => {
+    const mapInfo = importSession.mapsData[importSession.currentStep];
+    // Guardar en resolvedMaps
+    importSession.resolvedMaps.push({ mapInfo, url, w, h });
+    // Feedback visual
+    importDropzone.classList.add('loaded');
+    importDropLabel.textContent = `✓ ${file.name}`;
+    importNext.disabled = false;
+  });
+});
+
+importNext.addEventListener('click', () => {
+  importSession.currentStep++;
+  if (importSession.currentStep < importSession.mapsData.length) {
+    openImportStep();
+  } else {
+    // Todos los mapas recogidos → reconstituir app
+    finalizeImport();
+  }
+});
+
+importSkip.addEventListener('click', closeImport);
+document.getElementById('import-close').addEventListener('click', closeImport);
+overlayImport.addEventListener('click', e => { if(e.target===overlayImport) closeImport(); });
+
+function finalizeImport() {
+  closeImport();
+  // Limpiar estado actual
+  APP.maps = []; APP.current = null;
+  mapImg.src=''; mapWrap.querySelectorAll('.marker').forEach(el=>el.remove());
+
+  importSession.resolvedMaps.forEach(({mapInfo, url, w, h}) => {
+    APP.maps.push({
+      id: 'map_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+      name:    mapInfo.name,
+      imgSrc:  url,
+      imgW:    w,
+      imgH:    h,
+      markers: mapInfo.markers || [],
+      scale:   1, ox:0, oy:0,
+    });
+  });
+
+  if (APP.maps.length) {
+    APP.current = APP.maps[0].id;
+    rebuildSelector(); switchMap(APP.current);
+    setTimeout(fitToArea, 50);
+    const total = APP.maps.reduce((a,m)=>a+m.markers.length,0);
+    showSnack(`Sesión restaurada · ${APP.maps.length} mapas · ${total} marcadores`);
+  }
+}
+
+// ── Toolbar: cargar JSON ──────────────────────────────────────────────────
+document.getElementById('load-json-btn').addEventListener('click', () => {
+  document.getElementById('json-input').click();
+});
+document.getElementById('json-input').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => startImport(ev.target.result);
+  reader.readAsText(file);
+  e.target.value='';
+});
+
+// ── Toolbar resto ─────────────────────────────────────────────────────────
+document.getElementById('add-btn').addEventListener('click',()=>document.getElementById('file-input').click());
+document.getElementById('file-input').addEventListener('change',e=>{
+  const file=e.target.files[0];if(!file)return;
+  openNameModal(file);e.target.value='';
+});
+document.getElementById('fit-btn').addEventListener('click',fitToArea);
+document.getElementById('zoom-in').addEventListener('click',()=>{const r=mapArea.getBoundingClientRect();doZoom(1.35,r.width/2,r.height/2);});
+document.getElementById('zoom-out').addEventListener('click',()=>{const r=mapArea.getBoundingClientRect();doZoom(1/1.35,r.width/2,r.height/2);});
+document.getElementById('del-map-btn').addEventListener('click',()=>{
+  const m=cur();if(!m)return;const name=m.name;
+  APP.maps=APP.maps.filter(x=>x.id!==m.id);
+  if(APP.maps.length>0){APP.current=APP.maps[APP.maps.length-1].id;rebuildSelector();switchMap(APP.current);}
+  else{APP.current=null;mapImg.src='';mapWrap.querySelectorAll('.marker').forEach(el=>el.remove());emptyState.style.display='flex';rebuildSelector();}
+  showSnack(`"${name}" eliminado`);
+});
+document.getElementById('save-btn').addEventListener('click',()=>{
+  if(!APP.maps.length){showSnack('No hay mapas cargados');return;}
+  const data={
+    icons:APP.icons.map(i=>({id:i.id,name:i.name,total:i.total})),
+    maps:APP.maps.map(m=>({id:m.id,name:m.name,imgW:m.imgW,imgH:m.imgH,markers:m.markers}))
+  };
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mapas-marcadores.json';a.click();
+  const total=APP.maps.reduce((acc,m)=>acc+m.markers.length,0);
+  showSnack(`${APP.maps.length} mapas · ${total} marcadores guardados`);
+});
+</script>
+</body>
+</html>
