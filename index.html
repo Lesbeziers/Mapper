@@ -309,13 +309,27 @@ function rebuildSelector() {
 }
 selector.addEventListener('change', () => switchMap(selector.value));
 
+function loadMapImage(m) {
+  return new Promise(resolve => {
+    const done = () => {
+      if (mapImg.naturalWidth > 0) { m.imgW = mapImg.naturalWidth; m.imgH = mapImg.naturalHeight; }
+      resolve();
+    };
+    mapImg.onload  = done;
+    mapImg.onerror = done; // resolve igualmente para no quedarse colgado
+    mapImg.src = '';       // forzar re-disparo siempre
+    mapImg.src = m.imgSrc;
+  });
+}
+
 function switchMap(id) {
   APP.current = id;
   const m = cur(); if (!m) return;
-  mapImg.onload = () => { emptyState.style.display = 'none'; applyTransform(); };
-  mapImg.src = m.imgSrc;
-  if (mapImg.complete && mapImg.naturalWidth > 0) { emptyState.style.display = 'none'; applyTransform(); }
   rebuildSelector();
+  loadMapImage(m).then(() => {
+    emptyState.style.display = 'none';
+    applyTransform();
+  });
 }
 
 // ── Transform ─────────────────────────────────────────────────────────────
@@ -714,30 +728,39 @@ document.getElementById('import-close').addEventListener('click', closeImport);
 overlayImport.addEventListener('click', e => { if(e.target===overlayImport) closeImport(); });
 
 function finalizeImport() {
+  const resolvedMaps = importSession.resolvedMaps.slice();
   closeImport();
-  // Limpiar estado actual
-  APP.maps = []; APP.current = null;
-  mapImg.src=''; mapWrap.querySelectorAll('.marker').forEach(el=>el.remove());
 
-  importSession.resolvedMaps.forEach(({mapInfo, url, w, h}) => {
+  APP.maps = []; APP.current = null;
+  mapImg.onload = null; mapImg.onerror = null; mapImg.src = '';
+  mapWrap.querySelectorAll('.marker').forEach(el => el.remove());
+  emptyState.style.display = 'flex';
+
+  resolvedMaps.forEach(({mapInfo, url, w, h}) => {
     APP.maps.push({
-      id: 'map_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+      id:      'map_' + Date.now() + '_' + Math.random().toString(36).slice(2,6),
       name:    mapInfo.name,
       imgSrc:  url,
-      imgW:    w,
-      imgH:    h,
+      imgW:    w, imgH: h,
       markers: mapInfo.markers || [],
-      scale:   1, ox:0, oy:0,
+      scale:   1, ox: 0, oy: 0,
     });
   });
 
-  if (APP.maps.length) {
-    APP.current = APP.maps[0].id;
-    rebuildSelector(); switchMap(APP.current);
-    setTimeout(fitToArea, 50);
-    const total = APP.maps.reduce((a,m)=>a+m.markers.length,0);
-    showSnack(`Sesión restaurada · ${APP.maps.length} mapas · ${total} marcadores`);
-  }
+  if (!APP.maps.length) return;
+
+  APP.current = APP.maps[0].id;
+  rebuildSelector();
+
+  const total = APP.maps.reduce((a,m) => a + m.markers.length, 0);
+  showSnack(`Sesión restaurada · ${APP.maps.length} mapas · ${total} marcadores`);
+
+  // Cargar la primera imagen y luego ajustar vista — todo por promesa, sin timeouts
+  loadMapImage(APP.maps[0]).then(() => {
+    emptyState.style.display = 'none';
+    applyTransform();
+    fitToArea();
+  });
 }
 
 // ── Toolbar: cargar JSON ──────────────────────────────────────────────────
