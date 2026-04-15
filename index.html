@@ -46,7 +46,7 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
 .project-card.new-card span{font-size:13px;color:var(--accent);}
 #home-empty{display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:40px 20px;text-align:center;}
 #home-empty p{font-size:15px;color:var(--muted);line-height:1.6;}
-#login-required{display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;flex:1;padding:30px;text-align:center;}
+#login-required{display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;flex:1;padding:30px;text-align:center;background:transparent;}
 #login-required p{font-size:15px;color:var(--muted);line-height:1.6;}
 #login-required-btn{padding:12px 24px;border-radius:24px;background:var(--accent);border:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:15px;cursor:pointer;touch-action:manipulation;}
 
@@ -93,6 +93,16 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
 .marker-ring{display:none;position:absolute;width:44px;height:44px;border-radius:50%;border:2.5px solid var(--accent);pointer-events:none;animation:pulse 1.4s ease-in-out infinite;}
 @keyframes pulse{0%,100%{transform:scale(.8);opacity:1;}50%{transform:scale(1.3);opacity:.3;}}
 
+/* Footer home */
+#home-footer{flex-shrink:0;padding:16px;text-align:center;font-family:'DM Mono',monospace;font-size:11px;color:rgba(232,232,240,.2);letter-spacing:.1em;}
+
+/* Loading spinner */
+#loading-state{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;pointer-events:none;z-index:20;}
+#loading-state.show{display:flex;}
+.spinner{width:44px;height:44px;border:3px solid var(--b2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#loading-state p{font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);letter-spacing:.08em;}
+
 /* Zoom */
 #zoom-controls{position:absolute;bottom:20px;right:14px;display:flex;flex-direction:column;gap:6px;z-index:50;}
 .zoom-btn{width:44px;height:44px;border-radius:10px;border:1px solid var(--b2);background:rgba(26,26,34,.88);backdrop-filter:blur(8px);color:var(--text);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;transition:background .12s;}
@@ -102,11 +112,12 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
 #save-indicator.show{opacity:1;}
 
 /* ── Icon picker grid ── */
-.icon-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;}
-.ig-btn{width:100%;aspect-ratio:1;border-radius:8px;border:1px solid var(--b1);background:var(--s2);cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;transition:background .1s,border-color .1s,transform .1s;position:relative;}
+.icon-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
+.ig-btn{width:100%;border-radius:8px;border:1px solid var(--b1);background:var(--s2);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:8px 4px;touch-action:manipulation;transition:background .1s,border-color .1s,transform .1s;position:relative;}
 .ig-btn:active{transform:scale(.92);background:var(--s3);}
 .ig-btn.selected{border-color:var(--accent);background:rgba(124,108,252,.15);}
-.ig-btn title-tip{display:none;}
+.ig-btn-label{font-size:10px;color:var(--muted);text-align:center;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px;}
+.ig-btn.selected .ig-btn-label{color:var(--accent);}
 
 /* ── Overlay base ── */
 .overlay{display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.72);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:16px;}
@@ -177,14 +188,10 @@ textarea.plain-input{height:70px;padding:10px 12px;resize:none;line-height:1.5;}
 
 <!-- HOME -->
 <div class="screen active" id="home-screen">
-  <div id="home-header">
-    <div><div id="home-title">GAME MAPPER</div><div id="home-subtitle">Tus proyectos</div></div>
-    <div id="login-btn-wrap">
-      <button id="login-btn"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.3"/><path d="M8 5v3l2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Entrar con Google</button>
-      <div id="user-info" style="display:none"><img id="user-avatar" src="" alt=""><span id="user-name"></span><button id="logout-btn"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
-    </div>
-  </div>
-  <div id="login-required" style="display:flex"><div class="e-icon" style="width:70px;height:70px;border-radius:20px"><svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="13" stroke="rgba(124,108,252,.6)" stroke-width="1.5"/><path d="M16 9v7l4 4" stroke="rgba(124,108,252,.6)" stroke-width="1.5" stroke-linecap="round"/></svg></div><p>Inicia sesión con Google<br>para acceder a tus proyectos</p><button id="login-required-btn">Entrar con Google</button></div>
+  <div id="home-header" style="justify-content:center;"><div id="home-title">GAME MAPPER LESBEZIERS</div></div>
+  
+  <div id="login-required" style="display:flex;flex:1;align-items:center;justify-content:center;"><button id="login-required-btn">ACCEDER A MAPAS</button></div>
+  <div id="home-footer">LESBEZIERS, 2026</div>
   <div id="home-body" style="display:none"><div id="projects-grid"></div><div id="home-empty"><p>Toca <strong>+</strong> para crear el primero</p></div></div>
 </div>
 
@@ -207,6 +214,7 @@ textarea.plain-input{height:70px;padding:10px 12px;resize:none;line-height:1.5;}
   </div>
   <div id="map-area">
     <div id="map-wrap"><img id="map-img" src="" alt="" draggable="false"></div>
+    <div id="loading-state"><div class="spinner"></div><p>CARGANDO MAPAS</p></div>
     <div id="empty-state"><div class="e-icon"><svg width="26" height="26" viewBox="0 0 26 26" fill="none"><rect x="2" y="2" width="22" height="22" rx="4" stroke="rgba(124,108,252,.6)" stroke-width="1.5"/><path d="M2 18L8 12L13 17L18 10L24 16" stroke="rgba(124,108,252,.6)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19" cy="7" r="3" stroke="rgba(124,108,252,.6)" stroke-width="1.5"/></svg></div><p>Toca <strong>+</strong> para añadir un mapa</p></div>
     <div id="zoom-controls"><button class="zoom-btn" id="zoom-in">+</button><span id="zoom-label">100%</span><button class="zoom-btn" id="zoom-out">−</button></div>
     <div id="save-indicator">✓ guardado</div>
@@ -301,7 +309,7 @@ textarea.plain-input{height:70px;padding:10px 12px;resize:none;line-height:1.5;}
 const ICONS = [
   // Exploración
   {id:'shrine',    cat:'Exploración', label:'Santuario/Templo', color:'#7c6cfc',
-    svg:`<rect x="6" y="10" width="16" height="12" rx="1" fill="C" stroke="rgba(0,0,0,.2)" stroke-width=".8"/><polygon points="14,3 22,10 6,10" fill="C" stroke="rgba(0,0,0,.2)" stroke-width=".8"/><rect x="11" y="15" width="6" height="7" rx="1" fill="rgba(0,0,0,.25)"/>`},
+    svg:`<polygon points="14,2 25,8 3,8" fill="C" stroke="rgba(0,0,0,.2)" stroke-width=".8"/><rect x="3" y="8" width="22" height="2.5" fill="C"/><rect x="5" y="10.5" width="3" height="11" rx="1" fill="C"/><rect x="10" y="10.5" width="3" height="11" rx="1" fill="C"/><rect x="15" y="10.5" width="3" height="11" rx="1" fill="C"/><rect x="20" y="10.5" width="3" height="11" rx="1" fill="C"/><rect x="3" y="21.5" width="22" height="2.5" fill="C"/><rect x="2" y="24" width="24" height="2.5" rx=".5" fill="C"/>`},
   {id:'dungeon',   cat:'Exploración', label:'Mazmorra', color:'#9b59b6',
     svg:`<rect x="4" y="4" width="20" height="20" rx="2" fill="C" stroke="rgba(0,0,0,.2)" stroke-width=".8"/><rect x="8" y="8" width="6" height="6" fill="rgba(0,0,0,.3)"/><rect x="18" y="8" width="4" height="4" fill="rgba(0,0,0,.3)"/><rect x="8" y="18" width="12" height="4" fill="rgba(0,0,0,.3)"/>`},
   {id:'tower',     cat:'Exploración', label:'Torre/Mirador', color:'#3498db',
@@ -382,7 +390,8 @@ function iconLabel(id){ return (ICONS.find(i=>i.id===id)||ICONS[0]).label; }
 const APP = {
   accessToken:null, user:null, rootFolderId:null,
   projects:[], current:null,
-  iconTotals:{}, // {iconId: totalCount}
+  iconTotals:{}, // {iconId: totalCount, iconId_name: customName}
+  iconVisibility:{}, // {iconId: true/false} — true = visible
   iconsConfigured:false,
 };
 const curProj = () => APP.projects.find(p=>p.id===APP.current);
@@ -443,9 +452,9 @@ function updateLoginUI(){
     if(APP.user.picture){$('user-avatar').onerror=()=>{$('user-avatar').style.display='none';ini.style.display='flex';};$('user-avatar').onload=()=>{ini.style.display='none';$('user-avatar').style.display='block';};$('user-avatar').src=APP.user.picture;}
   }
 }
-$('login-btn').addEventListener('click',requestToken);
-$('login-required-btn').addEventListener('click',requestToken);
-$('logout-btn').addEventListener('click',logout);
+if($('login-btn'))$('login-btn').addEventListener('click',requestToken);
+if($('login-required-btn'))$('login-required-btn').addEventListener('click',requestToken);
+if($('logout-btn'))$('logout-btn').addEventListener('click',logout);
 
 // ══════════════════════════════════════════════════════
 // DRIVE HELPERS
@@ -525,14 +534,18 @@ async function openProject(projectId){
   const p=APP.projects.find(x=>x.id===projectId);if(!p)return;
   APP.current=projectId;
   APP.iconTotals={};APP.iconsConfigured=false;
-  showScreen('map-screen');showSnack(`Cargando ${p.name}...`);
+  showScreen('map-screen');
+  // Mostrar spinner, ocultar empty state durante carga
+  $('loading-state').classList.add('show');
+  $('empty-state').style.display='none';
   try{
     if(p.jsonFileId){
       const data=await getFileContent(p.jsonFileId);
       if(data.iconTotals){APP.iconTotals=data.iconTotals;APP.iconsConfigured=true;}
+      if(data.iconVisibility){APP.iconVisibility=data.iconVisibility;}
       p.maps=[];
       if(data.maps&&data.maps.length){
-        showSnack('Cargando imágenes...');
+        
         for(const m of data.maps){
           let imgSrc=null;
           if(m.driveFileId){try{imgSrc=await getImageAsObjectURL(m.driveFileId);}catch(e){}}
@@ -542,6 +555,7 @@ async function openProject(projectId){
       }
     }
   }catch(e){showSnack('Error cargando datos');console.error(e);}
+  $('loading-state').classList.remove('show');
   rebuildSelector();
   if(p.maps.length){switchMap(p.currentMap);}
   else{emptyState.style.display='flex';if(!APP.iconsConfigured)setTimeout(()=>openIconsModal(),400);}
@@ -596,6 +610,8 @@ function renderMarkers(){
   const m=curMap();if(!m)return;
   const inv=1/m.scale;
   m.markers.forEach((mk,idx)=>{
+    // Ocultar si el tipo está desactivado (por defecto visible)
+    if(APP.iconVisibility[mk.type]===false)return;
     const el=document.createElement('div');el.className='marker';
     if(mk.id===highlightedMarkerId)el.classList.add('highlighted');
     el.style.cssText=`left:${mk.x}px;top:${mk.y}px;transform:translate(-50%,-50%) scale(${inv})`;
@@ -644,17 +660,22 @@ let pendingCoords=null, editingMarker=null;
 
 function buildIconGrid(gridEl, selectedId, onSelect){
   gridEl.innerHTML='';
-  let cats={};
-  ICONS.forEach(ic=>{if(!cats[ic.cat])cats[ic.cat]=[];cats[ic.cat].push(ic);});
-  Object.keys(cats).forEach(cat=>{
-    const label=document.createElement('p');label.style.cssText='font-size:11px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase;margin:6px 0 4px;grid-column:1/-1;';label.textContent=cat;gridEl.appendChild(label);
-    cats[cat].forEach(ic=>{
-      const btn=document.createElement('button');btn.className='ig-btn';
-      if(ic.id===selectedId)btn.classList.add('selected');
-      btn.title=ic.label;btn.innerHTML=iconSVG(ic.id,22);
-      btn.addEventListener('click',e=>{e.stopPropagation();gridEl.querySelectorAll('.ig-btn').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');onSelect(ic.id);});
-      gridEl.appendChild(btn);
-    });
+  // Solo mostrar iconos con nombre personalizado
+  const visible = ICONS.filter(ic => APP.iconTotals[ic.id+'_name']);
+  if(!visible.length){
+    const msg=document.createElement('p');
+    msg.style.cssText='font-size:13px;color:var(--muted);text-align:center;padding:16px 0;grid-column:1/-1;';
+    msg.textContent='Configura los iconos primero (botón ⋯)';
+    gridEl.appendChild(msg);return;
+  }
+  visible.forEach(ic=>{
+    const customName=APP.iconTotals[ic.id+'_name'];
+    const btn=document.createElement('button');btn.className='ig-btn';
+    if(ic.id===selectedId)btn.classList.add('selected');
+    btn.title=customName;
+    btn.innerHTML=iconSVG(ic.id,24)+'<span class="ig-btn-label">'+customName+'</span>';
+    btn.addEventListener('click',e=>{e.stopPropagation();gridEl.querySelectorAll('.ig-btn').forEach(b=>b.classList.remove('selected'));btn.classList.add('selected');onSelect(ic.id);});
+    gridEl.appendChild(btn);
   });
 }
 
@@ -704,8 +725,9 @@ function openMarkerDetail(mapId,markerId){
   const mk=map.markers.find(m=>m.id===markerId);if(!mk)return;
   viewingMarker={mapId,markerId};
   $('marker-detail-icon').innerHTML=iconSVG(mk.type,36);
-  $('marker-detail-name').textContent=mk.name||(iconLabel(mk.type));
-  $('marker-detail-type').textContent=mk.name?iconLabel(mk.type):'';
+  const customIconName = APP.iconTotals[mk.type+'_name'] || iconLabel(mk.type);
+  $('marker-detail-name').textContent = mk.name || customIconName;
+  $('marker-detail-type').textContent = mk.name ? customIconName : '';
   $('marker-detail-note').textContent=mk.note||'Sin notas';
   $('marker-detail-note').style.color=mk.note?'var(--text)':'var(--muted)';
   $('overlay-marker').classList.add('open');
@@ -834,36 +856,82 @@ $('edit-icons-btn').addEventListener('click',openIconsModal);
 // ══════════════════════════════════════════════════════
 // COUNTERS
 // ══════════════════════════════════════════════════════
-$('counters-btn').addEventListener('click',()=>{
+function renderCounters(){
   const body=$('counters-body');body.innerHTML='';
-  const p=curProj();const counts={};ICONS.forEach(ic=>{counts[ic.id]=0;});
+  const p=curProj();
+  const counts={};ICONS.forEach(ic=>{counts[ic.id]=0;});
   if(p)p.maps.forEach(m=>m.markers.forEach(mk=>{if(counts[mk.type]!==undefined)counts[mk.type]++;}));
   const curCounts={};ICONS.forEach(ic=>{curCounts[ic.id]=0;});
   const m=curMap();if(m)m.markers.forEach(mk=>{if(curCounts[mk.type]!==undefined)curCounts[mk.type]++;});
-  // Only show icons that have markers or have a total set
-  const relevant=ICONS.filter(ic=>counts[ic.id]>0||APP.iconTotals[ic.id]);
-  if(!relevant.length){const empty=document.createElement('p');empty.style.cssText='font-size:14px;color:var(--muted);text-align:center;padding:20px 0;';empty.textContent='Aún no hay marcadores';body.appendChild(empty);}
-  else{
-    relevant.forEach(ic=>{
-      const total=counts[ic.id],curCnt=curCounts[ic.id];
-      const maxVal=APP.iconTotals[ic.id]||null;
-      const customName=APP.iconTotals[ic.id+'_name']||null;
-      const label=customName||ic.label;
-      const isComplete=maxVal&&total>=maxVal;
-      const valHTML=maxVal?`<span class="counter-val${isComplete?' complete':''}">${total}<span style="opacity:.5;font-size:12px">/${maxVal}</span></span>`:`<span class="counter-val">${total}</span>`;
-      const subLine=p&&p.maps.length>1&&m?`<span style="font-size:11px;color:var(--muted);display:block;margin-top:2px">Este mapa: ${curCnt}</span>`:'';
-      const row=document.createElement('div');row.className='counter-row';
-      row.innerHTML=`<div class="counter-icon">${iconSVG(ic.id,24)}</div><div class="counter-name">${label}${subLine}</div>${valHTML}`;
-      body.appendChild(row);
-    });
-    if(p&&p.maps.length>1){
-      const tot=APP.projects.reduce((a,proj)=>a+(proj.maps||[]).reduce((b,map)=>b+map.markers.length,0),0);
-      const sep=document.createElement('div');sep.style.cssText='border-top:1px solid var(--b1);margin:4px 0;';body.appendChild(sep);
-      const totRow=document.createElement('div');totRow.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:6px 12px;';
-      totRow.innerHTML=`<span style="font-size:13px;color:var(--muted)">Total global</span><span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--text)">${tot}</span>`;
-      body.appendChild(totRow);
-    }
+
+  // Solo iconos con nombre personalizado
+  const configured=ICONS.filter(ic=>APP.iconTotals[ic.id+'_name']);
+
+  if(!configured.length){
+    const empty=document.createElement('p');empty.style.cssText='font-size:14px;color:var(--muted);text-align:center;padding:20px 0;';
+    empty.textContent='Configura los iconos primero (botón ⋯)';body.appendChild(empty);return;
   }
+
+  // Botones ver todos / ocultar todos
+  const allVisible=configured.every(ic=>APP.iconVisibility[ic.id]!==false);
+  const allHidden=configured.every(ic=>APP.iconVisibility[ic.id]===false);
+  const controls=document.createElement('div');
+  controls.style.cssText='display:flex;gap:8px;margin-bottom:4px;';
+  const btnAll=document.createElement('button');
+  btnAll.style.cssText='flex:1;height:32px;border-radius:7px;border:1px solid var(--b2);background:var(--s2);color:var(--text);font-family:"DM Sans",sans-serif;font-size:12px;cursor:pointer;touch-action:manipulation;';
+  btnAll.textContent='Ver todos';
+  btnAll.addEventListener('click',()=>{configured.forEach(ic=>{APP.iconVisibility[ic.id]=true;});renderMarkers();scheduleSave();renderCounters();});
+  const btnNone=document.createElement('button');
+  btnNone.style.cssText=btnAll.style.cssText;
+  btnNone.textContent='Ocultar todos';
+  btnNone.addEventListener('click',()=>{configured.forEach(ic=>{APP.iconVisibility[ic.id]=false;});renderMarkers();scheduleSave();renderCounters();});
+  controls.appendChild(btnAll);controls.appendChild(btnNone);body.appendChild(controls);
+
+  // Filas por icono
+  configured.forEach(ic=>{
+    const total=counts[ic.id],curCnt=curCounts[ic.id];
+    const maxVal=APP.iconTotals[ic.id]||null;
+    const label=APP.iconTotals[ic.id+'_name']||ic.label;
+    const isVisible=APP.iconVisibility[ic.id]!==false;
+    const isComplete=maxVal&&total>=maxVal;
+    const valHTML=maxVal
+      ?`<span class="counter-val${isComplete?' complete':''}">${total}<span style="opacity:.5;font-size:12px">/${maxVal}</span></span>`
+      :`<span class="counter-val">${total}</span>`;
+    const subLine=p&&p.maps.length>1&&m
+      ?`<span style="font-size:11px;color:var(--muted);display:block;margin-top:1px">Este mapa: ${curCnt}</span>`:'';
+
+    const row=document.createElement('div');
+    row.style.cssText=`display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--s2);border-radius:10px;border:1px solid var(--b1);opacity:${isVisible?'1':'0.4'};transition:opacity .15s;`;
+
+    // Checkbox toggle
+    const check=document.createElement('button');
+    check.style.cssText=`width:22px;height:22px;border-radius:5px;border:1.5px solid ${isVisible?'var(--accent)':'var(--b2)'};background:${isVisible?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;cursor:pointer;touch-action:manipulation;flex-shrink:0;transition:all .15s;`;
+    check.innerHTML=isVisible?'<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':'';
+    check.addEventListener('click',()=>{
+      APP.iconVisibility[ic.id]=!isVisible;
+      renderMarkers();scheduleSave();renderCounters();
+    });
+
+    const iconEl=document.createElement('div');iconEl.style.cssText='flex-shrink:0;width:28px;height:28px;display:flex;align-items:center;justify-content:center;';iconEl.innerHTML=iconSVG(ic.id,24);
+    const nameEl=document.createElement('div');nameEl.style.cssText='flex:1;font-size:14px;color:var(--text);';nameEl.innerHTML=label+subLine;
+    const valEl=document.createElement('div');valEl.innerHTML=valHTML;
+
+    row.appendChild(check);row.appendChild(iconEl);row.appendChild(nameEl);row.appendChild(valEl);
+    body.appendChild(row);
+  });
+
+  // Total global si hay varios mapas
+  if(p&&p.maps.length>1){
+    const tot=p.maps.reduce((a,m)=>a+m.markers.length,0);
+    const sep=document.createElement('div');sep.style.cssText='border-top:1px solid var(--b1);margin:4px 0;';body.appendChild(sep);
+    const totRow=document.createElement('div');totRow.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:6px 10px;';
+    totRow.innerHTML=`<span style="font-size:13px;color:var(--muted)">Total global</span><span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:500;color:var(--text)">${tot}</span>`;
+    body.appendChild(totRow);
+  }
+}
+
+$('counters-btn').addEventListener('click',()=>{
+  renderCounters();
   $('overlay-counters').classList.add('open');
 });
 $('counters-close').addEventListener('click',()=>$('overlay-counters').classList.remove('open'));
@@ -877,7 +945,7 @@ function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(saveProject
 async function saveProject(){
   const p=curProj();if(!p||!APP.accessToken)return;
   try{
-    const data={iconTotals:APP.iconTotals,maps:p.maps.map(m=>({id:m.id,name:m.name,driveFileId:m.driveFileId||null,imgW:m.imgW,imgH:m.imgH,markers:m.markers}))};
+    const data={iconTotals:APP.iconTotals,iconVisibility:APP.iconVisibility,maps:p.maps.map(m=>({id:m.id,name:m.name,driveFileId:m.driveFileId||null,imgW:m.imgW,imgH:m.imgH,markers:m.markers}))};
     const jsonId=await saveJSON(data,p.jsonFileId,p.folderId,'marcadores.json');
     p.jsonFileId=jsonId;
     const ind=$('save-indicator');ind.classList.add('show');setTimeout(()=>ind.classList.remove('show'),2000);
@@ -923,7 +991,7 @@ $('new-project-confirm').addEventListener('click',async()=>{
     }
     const proj={id:folderId,name,folderId,jsonFileId:null,maps,currentMap:maps[0].id};
     APP.projects.push(proj);APP.current=folderId;
-    const jsonId=await saveJSON({iconTotals:APP.iconTotals,maps:maps.map(m=>({id:m.id,name:m.name,driveFileId:m.driveFileId,imgW:m.imgW,imgH:m.imgH,markers:[]}))},null,folderId,'marcadores.json');
+    const jsonId=await saveJSON({iconTotals:APP.iconTotals,iconVisibility:APP.iconVisibility,maps:maps.map(m=>({id:m.id,name:m.name,driveFileId:m.driveFileId,imgW:m.imgW,imgH:m.imgH,markers:[]}))},null,folderId,'marcadores.json');
     proj.jsonFileId=jsonId;
     renderHomeProjects();showScreen('map-screen');rebuildSelector();switchMap(proj.currentMap);
     if(!APP.iconsConfigured)setTimeout(openIconsModal,400);
@@ -987,5 +1055,5 @@ window.addEventListener('load',()=>{
 
 // marker detail fixed inline
 </script>
-</body>
+<button id="login-btn" style="display:none"></button><div id="user-info" style="display:none"><img id="user-avatar" src="" alt=""><span id="user-name"></span><button id="logout-btn"></button></div></body>
 </html>
