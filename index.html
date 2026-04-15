@@ -686,14 +686,14 @@ function renderMarkers(){
   mapWrap.querySelectorAll('.marker').forEach(el=>el.remove());
   const m=curMap();if(!m)return;
   const inv=1/m.scale;
-  m.markers.forEach((mk,idx)=>{
+  m.markers.forEach((mk)=>{
     // Ocultar si el tipo está desactivado (por defecto visible)
     if(APP.iconVisibility[mk.type]===false)return;
     const el=document.createElement('div');el.className='marker';
     if(mk.id===highlightedMarkerId)el.classList.add('highlighted');
     el.style.cssText=`left:${mk.x}px;top:${mk.y}px;transform:translate(-50%,-50%) scale(${inv})`;
     el.innerHTML=`<div class="marker-ring"></div>${iconSVG(mk.type,26)}`;
-    el.dataset.idx=idx;mapWrap.appendChild(el);
+    el.dataset.mkid=mk.id;mapWrap.appendChild(el);
   });
 }
 
@@ -829,16 +829,16 @@ $('marker-delete-btn').addEventListener('click',()=>{
 // ══════════════════════════════════════════════════════
 // POINTER HANDLING
 // ══════════════════════════════════════════════════════
-let ptrs={},dragStart=null,pinchStart=null,didMove=false,tappedMarkerIdx=null,pinchEndTime=0;
+let ptrs={},dragStart=null,pinchStart=null,didMove=false,tappedMarkerId=null,pinchEndTime=0;
 const PINCH_COOLDOWN=180;
 mapArea.addEventListener('contextmenu',e=>e.preventDefault());
 mapArea.addEventListener('pointerdown',e=>{
   if(e.pointerType==='mouse'&&e.button!==0)return;if(!curMap())return;e.preventDefault();
-  const mel=e.target.closest('.marker');tappedMarkerIdx=mel?parseInt(mel.dataset.idx):null;
+  const mel=e.target.closest('.marker');tappedMarkerId=mel?mel.dataset.mkid:null;
   mapArea.setPointerCapture(e.pointerId);ptrs[e.pointerId]={x:e.clientX,y:e.clientY};
   const pts=Object.values(ptrs);
   if(pts.length===1){didMove=false;dragStart={ox:curMap().ox,oy:curMap().oy,x:e.clientX,y:e.clientY};pinchStart=null;}
-  else if(pts.length===2){const[a,b]=pts;const r=mapArea.getBoundingClientRect();pinchStart={dist:Math.hypot(a.x-b.x,a.y-b.y),scale:curMap().scale,ox:curMap().ox,oy:curMap().oy,mx:(a.x+b.x)/2-r.left,my:(a.y+b.y)/2-r.top};didMove=true;tappedMarkerIdx=null;dragStart=null;}
+  else if(pts.length===2){const[a,b]=pts;const r=mapArea.getBoundingClientRect();pinchStart={dist:Math.hypot(a.x-b.x,a.y-b.y),scale:curMap().scale,ox:curMap().ox,oy:curMap().oy,mx:(a.x+b.x)/2-r.left,my:(a.y+b.y)/2-r.top};didMove=true;tappedMarkerId=null;dragStart=null;}
 },{passive:false});
 mapArea.addEventListener('pointermove',e=>{
   if(!ptrs[e.pointerId]||!curMap())return;ptrs[e.pointerId]={x:e.clientX,y:e.clientY};
@@ -856,8 +856,8 @@ mapArea.addEventListener('pointerup',e=>{
     if(remaining.length===1){const rp=ptrs[remaining[0]];dragStart={ox:curMap().ox,oy:curMap().oy,x:rp.x,y:rp.y};}
   }
   if(wasOne&&!didMove&&!wasPinching&&Date.now()-pinchEndTime>=PINCH_COOLDOWN&&curMap()){
-    if(tappedMarkerIdx!==null){
-      const mk=curMap().markers[tappedMarkerIdx];
+    if(tappedMarkerId){
+      const mk=curMap().markers.find(m=>m.id===tappedMarkerId);
       if(mk)openMarkerDetail(curProj().currentMap,mk.id);
     }else{
       const r=mapArea.getBoundingClientRect();const m=curMap();
@@ -865,9 +865,9 @@ mapArea.addEventListener('pointerup',e=>{
       if(imgX>=0&&imgY>=0&&imgX<=m.imgW&&imgY<=m.imgH)openPlaceModal(imgX,imgY);
     }
   }
-  if(Object.keys(ptrs).length===0){dragStart=null;didMove=false;tappedMarkerIdx=null;}
+  if(Object.keys(ptrs).length===0){dragStart=null;didMove=false;tappedMarkerId=null;}
 });
-mapArea.addEventListener('pointercancel',e=>{delete ptrs[e.pointerId];if(Object.keys(ptrs).length===0){dragStart=null;didMove=false;pinchStart=null;tappedMarkerIdx=null;}});
+mapArea.addEventListener('pointercancel',e=>{delete ptrs[e.pointerId];if(Object.keys(ptrs).length===0){dragStart=null;didMove=false;pinchStart=null;tappedMarkerId=null;}});
 mapArea.addEventListener('wheel',e=>{if(!curMap())return;e.preventDefault();const r=mapArea.getBoundingClientRect();doZoom(e.deltaY<0?1.15:1/1.15,e.clientX-r.left,e.clientY-r.top);},{passive:false});
 document.addEventListener('pointerdown',e=>{if($('search-results').classList.contains('open')&&!$('search-wrap').contains(e.target)){$('search-results').classList.remove('open');}});
 
