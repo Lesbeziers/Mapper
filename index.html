@@ -136,8 +136,11 @@ html,body{width:100%;height:100%;background:var(--bg);color:var(--text);font-fam
 .zoom-btn{width:44px;height:44px;border-radius:10px;border:1px solid var(--b2);background:rgba(26,26,34,.88);backdrop-filter:blur(8px);color:var(--text);font-size:22px;cursor:pointer;display:flex;align-items:center;justify-content:center;touch-action:manipulation;transition:background .12s;}
 .zoom-btn:active{background:var(--accent);}
 #zoom-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);text-align:center;}
-#save-indicator{position:absolute;bottom:20px;left:14px;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);opacity:0;transition:opacity .3s;z-index:50;}
+#save-indicator{position:absolute;bottom:20px;left:14px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:.05em;padding:8px 14px;border-radius:8px;opacity:0;transition:opacity .25s;z-index:50;pointer-events:none;border:1px solid transparent;}
 #save-indicator.show{opacity:1;}
+#save-indicator.saving{color:var(--warn);background:rgba(245,166,35,.12);border-color:rgba(245,166,35,.35);}
+#save-indicator.ok{color:var(--ok);background:rgba(86,201,122,.12);border-color:rgba(86,201,122,.35);}
+#save-indicator.err{color:var(--danger);background:rgba(252,108,108,.12);border-color:rgba(252,108,108,.4);}
 
 /* ── Icon picker grid ── */
 .icon-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;}
@@ -264,6 +267,8 @@ textarea.plain-input{height:70px;padding:10px 12px;resize:none;line-height:1.5;}
     </div>
     <div id="side-menu-body">
       <button class="sm-item" id="sm-back"><div class="sm-icon"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M9 3L5 7.5 9 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Volver a portada</button>
+      <div class="sm-divider"></div>
+      <button class="sm-item" id="sm-save"><div class="sm-icon"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 2h9l2 2v9H2V2z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M4 2v4h6V2M4 13v-4h7v4" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></div>Guardar ahora</button>
       <div class="sm-divider"></div>
       <button class="sm-item" id="sm-add-map"><div class="sm-icon"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><line x1="7.5" y1="1" x2="7.5" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="1" y1="7.5" x2="14" y2="7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>Añadir mapa</button>
       <button class="sm-item" id="sm-config-icons"><div class="sm-icon"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="3.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="11.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.4"/></svg></div>Configurar iconos</button>
@@ -511,6 +516,22 @@ function initGoogleAuth(){
   });
 }
 function requestToken(){ if(tokenClient)tokenClient.requestAccessToken(); }
+
+function refreshTokenSilent(){
+  return new Promise(resolve=>{
+    if(!tokenClient){resolve(false);return;}
+    const origCb=tokenClient.callback;
+    let settled=false;
+    const timeout=setTimeout(()=>{if(!settled){settled=true;tokenClient.callback=origCb;resolve(false);}},5000);
+    tokenClient.callback=(resp)=>{
+      if(settled)return;settled=true;clearTimeout(timeout);tokenClient.callback=origCb;
+      if(resp&&resp.access_token){APP.accessToken=resp.access_token;resolve(true);}
+      else{resolve(false);}
+    };
+    try{tokenClient.requestAccessToken({prompt:''});}
+    catch(e){if(!settled){settled=true;clearTimeout(timeout);tokenClient.callback=origCb;resolve(false);}}
+  });
+}
 function logout(){ if(APP.accessToken)google.accounts.oauth2.revoke(APP.accessToken); APP.accessToken=null;APP.user=null;APP.projects=[]; updateLoginUI(); }
 
 function updateLoginUI(){
@@ -615,23 +636,25 @@ async function openProject(projectId){
   // Mostrar spinner, ocultar empty state durante carga
   $('loading-state').classList.add('show');
   $('empty-state').style.display='none';
+  const prevMaps=p.maps.slice();
   try{
     if(p.jsonFileId){
       const data=await getFileContent(p.jsonFileId);
       if(data.iconTotals){APP.iconTotals=data.iconTotals;APP.iconsConfigured=true;}
       if(data.iconVisibility){APP.iconVisibility=data.iconVisibility;}
-      p.maps=[];
+      const loadedMaps=[];
       if(data.maps&&data.maps.length){
         
         for(const m of data.maps){
           let imgSrc=null;
           if(m.driveFileId){try{imgSrc=await getImageAsObjectURL(m.driveFileId);}catch(e){}}
-          p.maps.push({id:m.id||('map_'+Date.now()+'_'+Math.random().toString(36).slice(2,5)),name:m.name,driveFileId:m.driveFileId||null,imgSrc,imgW:m.imgW||800,imgH:m.imgH||600,markers:m.markers||[],scale:1,ox:0,oy:0});
+          loadedMaps.push({id:m.id||('map_'+Date.now()+'_'+Math.random().toString(36).slice(2,5)),name:m.name,driveFileId:m.driveFileId||null,imgSrc,imgW:m.imgW||800,imgH:m.imgH||600,markers:m.markers||[],scale:1,ox:0,oy:0});
         }
-        p.currentMap=p.maps[0].id;
       }
+      p.maps=loadedMaps;
+      if(p.maps.length)p.currentMap=p.maps[0].id;
     }
-  }catch(e){showSnack('Error cargando datos');console.error(e);}
+  }catch(e){p.maps=prevMaps;showSnack('Error cargando datos');console.error(e);}
   $('loading-state').classList.remove('show');
   rebuildSelector();
   if(p.maps.length){switchMap(p.currentMap);}
@@ -1024,14 +1047,40 @@ $('overlay-counters').addEventListener('click',e=>{if(e.target===$('overlay-coun
 // ══════════════════════════════════════════════════════
 let saveTimer=null;
 function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(saveProject,1500);}
-async function saveProject(){
-  const p=curProj();if(!p||!APP.accessToken)return;
-  try{
+function showSaveIndicator(state){
+  const ind=$('save-indicator');
+  if(!ind)return;
+  if(state==='saving'){ind.textContent='Guardando...';ind.className='show saving';}
+  else if(state==='ok'){ind.textContent='✓ Guardado';ind.className='show ok';setTimeout(()=>ind.className='',2500);}
+  else if(state==='err'){ind.textContent='✗ Error al guardar';ind.className='show err';setTimeout(()=>ind.className='',4000);}
+}
+async function saveProject(manual){
+  const p=curProj();if(!p){if(manual)showSnack('No hay proyecto abierto');return;}
+  const doSave=async()=>{
     const data={iconTotals:APP.iconTotals,iconVisibility:APP.iconVisibility,maps:p.maps.map(m=>({id:m.id,name:m.name,driveFileId:m.driveFileId||null,imgW:m.imgW,imgH:m.imgH,markers:m.markers}))};
     const jsonId=await saveJSON(data,p.jsonFileId,p.folderId,'marcadores.json');
     p.jsonFileId=jsonId;
-    const ind=$('save-indicator');ind.classList.add('show');setTimeout(()=>ind.classList.remove('show'),2000);
-  }catch(e){showSnack('Error guardando');console.error(e);}
+  };
+  showSaveIndicator('saving');
+  if(!APP.accessToken){
+    const ok=await refreshTokenSilent();
+    if(!ok){showSaveIndicator('err');showSnack('Sesión caducada — vuelve a entrar');return;}
+  }
+  try{
+    await doSave();
+    showSaveIndicator('ok');
+  }catch(e){
+    const msg=String(e&&e.message||e);
+    if(msg.includes('401')||msg.includes('403')){
+      const ok=await refreshTokenSilent();
+      if(ok){
+        try{await doSave();showSaveIndicator('ok');return;}
+        catch(e2){showSaveIndicator('err');showSnack('Error guardando');console.error(e2);return;}
+      }
+      APP.accessToken=null;showSaveIndicator('err');showSnack('Sesión caducada — vuelve a entrar');
+    }else{showSaveIndicator('err');showSnack('Error guardando');}
+    console.error(e);
+  }
 }
 
 // ══════════════════════════════════════════════════════
@@ -1112,6 +1161,7 @@ $('side-menu-close').addEventListener('click',closeSideMenu);
 $('side-menu-overlay').addEventListener('click',closeSideMenu);
 $('sm-back').addEventListener('click',()=>{closeSideMenu();saveProject();showScreen('home-screen');renderHomeProjects();});
 $('sm-add-map').addEventListener('click',()=>{closeSideMenu();$('add-map-file-input').click();});
+$('sm-save').addEventListener('click',()=>{closeSideMenu();saveProject(true);});
 $('sm-config-icons').addEventListener('click',()=>{closeSideMenu();openIconsModal();});
 $('sm-sort-maps').addEventListener('click',()=>{closeSideMenu();openSortMapsModal();});
 $('sm-del-map').addEventListener('click',()=>{
