@@ -419,6 +419,15 @@ textarea.plain-input{height:70px;padding:10px 12px;resize:none;line-height:1.5;}
   </div>
 </div>
 
+<!-- Confirmar eliminar marcador -->
+<div class="overlay" id="overlay-del-marker">
+  <div class="panel" style="max-width:340px">
+    <div class="panel-head"><h2>Eliminar marcador</h2><button class="panel-close" id="del-marker-close"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+    <div class="panel-body"><p style="font-size:14px;color:var(--text);line-height:1.5">¿Eliminar <strong id="del-marker-name"></strong>?</p><p style="font-size:12px;color:var(--muted);line-height:1.4">Se perderá el marcador y sus notas. Esta acción no se puede deshacer.</p></div>
+    <div class="panel-foot"><button class="btn-full btn-cancel" id="del-marker-cancel">Cancelar</button><button class="btn-full btn-danger" id="del-marker-confirm">Eliminar</button></div>
+  </div>
+</div>
+
 <!-- Colocar marcador: icono + nombre + nota -->
 <div class="overlay" id="overlay-place">
   <div class="panel">
@@ -1107,10 +1116,24 @@ $('marker-delete-btn').addEventListener('click',()=>{
   if(!viewingMarker)return;
   const p=curProj();if(!p)return;
   const map=p.maps.find(m=>m.id===viewingMarker.mapId);if(!map)return;
+  const mk=map.markers.find(m=>m.id===viewingMarker.markerId);if(!mk)return;
+  $('del-marker-name').textContent=mk.name||(APP.iconTotals[mk.type+'_name']||iconLabel(mk.type));
+  $('overlay-marker').classList.remove('open');
+  $('overlay-del-marker').classList.add('open');
+});
+$('del-marker-close').addEventListener('click',()=>$('overlay-del-marker').classList.remove('open'));
+$('del-marker-cancel').addEventListener('click',()=>$('overlay-del-marker').classList.remove('open'));
+$('overlay-del-marker').addEventListener('click',e=>{if(e.target===$('overlay-del-marker'))$('overlay-del-marker').classList.remove('open');});
+$('del-marker-confirm').addEventListener('click',()=>{
+  $('overlay-del-marker').classList.remove('open');
+  if(!viewingMarker)return;
+  const p=curProj();if(!p)return;
+  const map=p.maps.find(m=>m.id===viewingMarker.mapId);if(!map)return;
   map.markers=map.markers.filter(m=>m.id!==viewingMarker.markerId);
   if(highlightedMarkerId===viewingMarker.markerId)clearHighlight();
   else renderMarkers();
-  scheduleSave();$('overlay-marker').classList.remove('open');viewingMarker=null;
+  scheduleSave();viewingMarker=null;
+  showSnack('Marcador eliminado');
 });
 
 // ══════════════════════════════════════════════════════
