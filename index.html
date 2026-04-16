@@ -284,6 +284,7 @@ textarea.plain-input{height:70px;padding:10px 12px;resize:none;line-height:1.5;}
       <button class="sm-item" id="sm-config-icons"><div class="sm-icon"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="3.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="7.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.4"/><circle cx="11.5" cy="7.5" r="2" stroke="currentColor" stroke-width="1.4"/></svg></div>Configurar iconos</button>
       <button class="sm-item" id="sm-sort-maps"><div class="sm-icon"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M4 2v11M2 10.5L4 13l2-2.5M11 13V2M9 4.5L11 2l2 2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Ordenar mapas</button>
       <div class="sm-divider"></div>
+      <button class="sm-item danger" id="sm-reset-done"><div class="sm-icon"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 7.5a5.5 5.5 0 0 1 9.5-3.8M13 7.5a5.5 5.5 0 0 1-9.5 3.8M11.5 1v3.5H8M3.5 14v-3.5H7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Reiniciar completados</button>
       <button class="sm-item danger" id="sm-del-map"><div class="sm-icon"><svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M2 3.5h11M5 3.5V2h5v1.5M5.5 6.5v5M9.5 6.5v5M3 3.5l.8 8.5a1 1 0 001 .9h5.4a1 1 0 001-.9l.8-8.5" stroke="currentColor" stroke-width="1.35" stroke-linecap="round" stroke-linejoin="round"/></svg></div>Eliminar mapa</button>
     </div>
   </div>
@@ -354,6 +355,24 @@ textarea.plain-input{height:70px;padding:10px 12px;resize:none;line-height:1.5;}
     <div class="panel-head"><h2>Eliminar mapa</h2><button class="panel-close" id="del-map-close"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
     <div class="panel-body"><p style="font-size:14px;color:var(--text);line-height:1.5">¿Eliminar <strong id="del-map-name"></strong>?</p><p style="font-size:12px;color:var(--muted);line-height:1.4">Se perderán todos los marcadores de este mapa.</p></div>
     <div class="panel-foot"><button class="btn-full btn-cancel" id="del-map-cancel">Cancelar</button><button class="btn-full btn-danger" id="del-map-confirm">Eliminar</button></div>
+  </div>
+</div>
+
+<!-- Reiniciar completados — paso 1 -->
+<div class="overlay" id="overlay-reset-1">
+  <div class="panel" style="max-width:340px">
+    <div class="panel-head"><h2>Reiniciar completados</h2><button class="panel-close" id="reset-1-close"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+    <div class="panel-body"><p style="font-size:14px;color:var(--text);line-height:1.5">Esto desmarcará <strong>todos</strong> los marcadores completados de <strong>todo el proyecto</strong>.</p><p style="font-size:12px;color:var(--muted);line-height:1.4">Los marcadores NO se eliminan. Solo se resetea su estado de "Completado". Los iconos, nombres y notas se mantienen intactos.</p></div>
+    <div class="panel-foot"><button class="btn-full btn-cancel" id="reset-1-cancel">Cancelar</button><button class="btn-full btn-danger" id="reset-1-next">Continuar</button></div>
+  </div>
+</div>
+
+<!-- Reiniciar completados — paso 2 -->
+<div class="overlay" id="overlay-reset-2">
+  <div class="panel" style="max-width:340px">
+    <div class="panel-head"><h2>¿Seguro?</h2><button class="panel-close" id="reset-2-close"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><line x1="2" y1="2" x2="10" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="10" y1="2" x2="2" y2="10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button></div>
+    <div class="panel-body"><p style="font-size:14px;color:var(--text);line-height:1.5">Se van a desmarcar <strong id="reset-count">0</strong> marcadores completados.</p><p style="font-size:13px;color:var(--danger);line-height:1.4;font-weight:500">Esta acción no se puede deshacer.</p></div>
+    <div class="panel-foot"><button class="btn-full btn-cancel" id="reset-2-cancel">Cancelar</button><button class="btn-full btn-danger" id="reset-2-confirm">Sí, reiniciar</button></div>
   </div>
 </div>
 
@@ -1203,6 +1222,36 @@ $('del-map-confirm').addEventListener('click',()=>{
   if(p.maps.length){p.currentMap=p.maps[p.maps.length-1].id;rebuildSelector();switchMap(p.currentMap);}
   else{p.currentMap=null;mapImg.src='';mapWrap.querySelectorAll('.marker').forEach(el=>el.remove());emptyState.style.display='flex';rebuildSelector();}
   scheduleSave();showSnack(`"${name}" eliminado`);
+});
+
+// Reset completados
+function countDoneMarkers(){
+  const p=curProj();if(!p)return 0;
+  let n=0;p.maps.forEach(m=>m.markers.forEach(mk=>{if(mk.done)n++;}));return n;
+}
+$('sm-reset-done').addEventListener('click',()=>{
+  closeSideMenu();
+  const p=curProj();if(!p)return;
+  const n=countDoneMarkers();
+  if(n===0){showSnack('No hay marcadores completados');return;}
+  $('overlay-reset-1').classList.add('open');
+});
+$('reset-1-close').addEventListener('click',()=>$('overlay-reset-1').classList.remove('open'));
+$('reset-1-cancel').addEventListener('click',()=>$('overlay-reset-1').classList.remove('open'));
+$('overlay-reset-1').addEventListener('click',e=>{if(e.target===$('overlay-reset-1'))$('overlay-reset-1').classList.remove('open');});
+$('reset-1-next').addEventListener('click',()=>{
+  $('overlay-reset-1').classList.remove('open');
+  $('reset-count').textContent=countDoneMarkers();
+  $('overlay-reset-2').classList.add('open');
+});
+$('reset-2-close').addEventListener('click',()=>$('overlay-reset-2').classList.remove('open'));
+$('reset-2-cancel').addEventListener('click',()=>$('overlay-reset-2').classList.remove('open'));
+$('overlay-reset-2').addEventListener('click',e=>{if(e.target===$('overlay-reset-2'))$('overlay-reset-2').classList.remove('open');});
+$('reset-2-confirm').addEventListener('click',()=>{
+  $('overlay-reset-2').classList.remove('open');
+  const p=curProj();if(!p)return;
+  let n=0;p.maps.forEach(m=>m.markers.forEach(mk=>{if(mk.done){mk.done=false;n++;}}));
+  renderMarkers();scheduleSave();showSnack(`${n} marcadores reiniciados`);
 });
 $('fit-btn').addEventListener('click',fitToArea);
 $('zoom-in').addEventListener('click',()=>{const r=mapArea.getBoundingClientRect();doZoom(1.35,r.width/2,r.height/2);});
